@@ -22,12 +22,12 @@ class ListViewDemoController extends GetxController {
 
   Future<void> getData(pageKey) async {
     try {
-      List formData = [
-        {"key": "skip", "value": pageKey},
-        {"key": "take", "value": _pageSize},
-      ];
+      var formData = {
+        "skip": pageKey,
+        "take": _pageSize,
+      };
 
-      await apis.getApi(apiMethods.offers, formData).then((resData) async {
+      await apis.call(apiMethods.offers, formData, apiType.get).then((resData) async {
         if (resData?.isSuccess == true) {
           var data = resData?.data['data'];
           final isLastPage = data.length < _pageSize;

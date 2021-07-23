@@ -13,3 +13,10 @@ class Session {
   final String phone = 'phone';
   final String isoCode = 'isoCode';
 }
+
+class ApiType {
+  final String get = "get";
+  final String post = 'post';
+  final String put = 'put';
+  final String delete = 'delet';
+}

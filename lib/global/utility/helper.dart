@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:connectivity/connectivity.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_boilerplate_2/controllers/common/loading_controller.dart';
 import 'package:flutter_boilerplate_2/global/assets/index.dart' show imageAssets;
@@ -445,5 +447,18 @@ class Helper {
     snackBar('something went wrong. Try again after some time');
     print("Exception : on $controllerName");
     print(e.toString());
+  }
+
+  Future<bool> isNetworkConnection() async {
+    var connectivityResult = await Connectivity().checkConnectivity(); //Check For Wifi or Mobile data is ON/OFF
+    if (connectivityResult == ConnectivityResult.none) {
+      return false;
+    } else {
+      final result = await InternetAddress.lookup('google.com'); //Check For Internet Connection
+      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty)
+        return true;
+      else
+        return false;
+    }
   }
 }

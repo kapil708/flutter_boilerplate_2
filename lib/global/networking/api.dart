@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:connectivity/connectivity.dart';
 import 'package:dio/dio.dart';
 //app package
 import 'package:flutter_boilerplate_2/global/packages/config_package.dart';
@@ -11,6 +10,8 @@ import 'server_config.dart';
 Dio dio = new Dio();
 ServerConfig _serverConfig = ServerConfig();
 
+bool isApiLoading = false;
+
 class Apis {
   //this is compulsory. do not delete
   Apis() {
@@ -18,36 +19,73 @@ class Apis {
     dio.options
       ..baseUrl = _serverConfig.apiUrl
       ..validateStatus = (int? status) {
-        //this will always redirect to onResponse method
-        return status! > 0;
+        return status! > 0; //this will always redirect to onResponse method
       }
       ..headers = {
         'Accept': 'application/json',
+        'content-type': 'application/json',
       };
     //interceptors
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        // Do something before request is sent
-        //print("interceptors onRequest");
-        print(options.uri);
+        print("interceptors onRequest : ${options.uri}");
         return handler.next(options);
       },
       onResponse: (response, handler) {
-        // Do something with response data
-        //print("interceptors onResponse");
-        //print(response.statusCode);
+        print("interceptors onResponse : ${response.statusCode}");
         return handler.next(response);
       },
       onError: (DioError e, handler) {
-        // Do something with response error
-        //print("interceptors onError");
-        //print(e.toString());
+        print("interceptors onError : ${e.toString()}");
         return handler.next(e);
       },
     ));
   }
 
+  // ignore: missing_return
+  Future<APIDataClass?> call(String apiName, body, type) async {
+    //default data to class
+    APIDataClass apiData = new APIDataClass(message: 'No Data', isSuccess: false, validation: false, data: null);
+    try {
+      bool isInternet = await helper.isNetworkConnection();
+      if (isInternet) {
+        String authToken = helper.getStorage(session.authToken);
+        dio.options.headers["Authorization"] = "Bearer $authToken";
+        dynamic response;
+
+        switch (type) {
+          case 'get':
+            //String url = await getFullUrl(apiName, body);
+            response = await dio.get(apiName, queryParameters: body); //dio request
+            break;
+          case 'post':
+            response = await dio.post(apiName, data: body);
+            break;
+          case 'delete':
+            response = await dio.delete(apiName, data: body);
+            break;
+          case 'put':
+            response = await dio.put(apiName, data: body);
+            break;
+        }
+
+        apiData = await checkStatus(response);
+        return apiData;
+      } else {
+        goToNoInternetScreen();
+      }
+    } on SocketException catch (e) {
+      onSocketException(e);
+      return apiData;
+    } on Exception catch (e) {
+      onException(e);
+      return apiData;
+    }
+  }
+
+  //#region functions
   Future<APIDataClass> checkStatus(response) async {
+    print("response : ${response.toString()}");
     print("statusCode : ${response.statusCode}");
     print(response.statusCode);
 
@@ -65,8 +103,19 @@ class Apis {
         message: 'validation failed',
         data: response.data,
       );
-    else {
-      helper.snackBar('Something went wrong. Try again after some time');
+    else if (response.statusCode == 401) {
+      helper.snackBar('unauthorized access please login');
+      helper.removeSpecificKeyStorage(session.authToken);
+      Get.offAndToNamed(routeName.login);
+
+      return APIDataClass(
+        isSuccess: false,
+        validation: true,
+        message: 'validation failed',
+        data: response.data,
+      );
+    } else {
+      //helper.snackBar('Something went wrong. Try again after some time');
       return APIDataClass(
         isSuccess: false,
         validation: false,
@@ -76,7 +125,6 @@ class Apis {
     }
   }
 
-  //to get full path with paramiters
   static Future<String> getFullUrl(String apiName, List params) async {
     String _url = "";
     if (params.length > 0) {
@@ -93,78 +141,132 @@ class Apis {
     return _url;
   }
 
-  // ignore: missing_return
-  Future<APIDataClass?> getApi(String apiName, List params) async {
+  goToNoInternetScreen() {
+    String currentRoute = Get.currentRoute;
+    if (currentRoute != routeName.noInternet) {
+      Get.toNamed(routeName.noInternet);
+    }
+    helper.snackBar("No internet connection");
+  }
+
+  onSocketException(e) {
+    print("API : SocketException - ${e.toString()}"); //do not delete
+    helper.snackBar(constValue.noInternet);
+  }
+
+  onException(e) {
+    print("API : Exception - ${e.toString()}"); //do not delete
+    helper.snackBar(constValue.wentWrong);
+  }
+//#endregion
+
+  //#region API Methods
+  /*// ignore: missing_return
+  Future<APIDataClass> getApi(String apiName, List params) async {
     //default data to class
     APIDataClass apiData = new APIDataClass(message: 'No Data', isSuccess: false, validation: false, data: null);
     try {
-      print("API : start"); //do not delete
-      var connectivityResult = await Connectivity().checkConnectivity(); //Check For Wifi or Mobile data is ON/OFF
-      if (connectivityResult == ConnectivityResult.none) {
-        print("API : ${constValue.noInternet}"); // do not delete
-        helper.snackBar(constValue.noInternet);
+      bool isInternet = await helper.isNetworkConnection();
+      if (isInternet) {
+        String url = await getFullUrl(apiName, params);
+        String authToken = helper.getStorage(session.authToken);
+        dio.options.headers["Authorization"] = "Bearer $authToken";
+
+        final response = await dio.get(url); //dio request
+        apiData = await checkStatus(response);
+
         return apiData;
       } else {
-        final result = await InternetAddress.lookup('google.com'); //Check For Internet Connection
-        if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
-          print("API : internet connected"); //do not delete
-
-          String url = await getFullUrl(apiName, params);
-          print("$apiName URL: " + url);
-
-          String? authToken = helper.getStorage('authToken');
-          print("authToken : $authToken");
-          dio.options.headers["Authorization"] = "Bearer $authToken";
-
-          final response = await dio.get(url); //dio request
-          apiData = await checkStatus(response); // get data base on status code
-          return apiData;
-        }
+        goToNoInternetScreen();
       }
     } on SocketException catch (e) {
-      print("API : SocketException - ${e.toString()}"); //do not delete
-      helper.snackBar(constValue.noInternet);
+      onSocketException(e);
       return apiData;
     } on Exception catch (e) {
-      print("API : Exception - ${e.toString()}"); //do not delete
-      helper.snackBar(constValue.wentWrong);
+      onException(e);
       return apiData;
     }
   }
 
   // ignore: missing_return
-  Future<APIDataClass?> postApi(String apiName, body) async {
+  Future<APIDataClass> postApi(String apiName, body) async {
     //default data to class
     APIDataClass apiData = new APIDataClass(message: 'No Data', isSuccess: false, validation: false, data: null);
 
     try {
-      print("API : start"); //do not delete
-      var connectivityResult = await Connectivity().checkConnectivity(); //Check For Wifi or Mobile data is ON/OFF
-      if (connectivityResult == ConnectivityResult.none) {
-        print("API : ${constValue.noInternet}"); // do not delete
-        helper.snackBar(constValue.noInternet);
+      bool isInternet = await helper.isNetworkConnection();
+      if (isInternet) {
+        String authToken = helper.getStorage(session.authToken);
+        dio.options.headers["Authorization"] = "Bearer $authToken";
+
+        final response = await dio.post(apiName, data: body); //dio request
+        apiData = await checkStatus(response); // get data base on status code
+
         return apiData;
       } else {
-        final result = await InternetAddress.lookup('google.com'); //Check For Internet Connection
-        if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
-          print("API : internet connected"); //do not delete
-
-          String? authToken = helper.getStorage('authToken');
-          dio.options.headers["Authorization"] = "Bearer $authToken";
-
-          final response = await dio.post(apiName, data: body); //dio request
-          apiData = await checkStatus(response); // get data base on status code
-          return apiData;
-        }
+        goToNoInternetScreen();
       }
     } on SocketException catch (e) {
-      print("API : SocketException - ${e.toString()}"); //do not delete
-      helper.snackBar(constValue.noInternet);
+      onSocketException(e);
       return apiData;
     } on Exception catch (e) {
-      print("API : Exception - ${e.toString()}"); //do not delete
-      helper.snackBar(constValue.wentWrong);
+      onException(e);
       return apiData;
     }
   }
+
+  // ignore: missing_return
+  Future<APIDataClass> putApi(String apiName, body) async {
+    //default data to class
+    APIDataClass apiData = new APIDataClass(message: 'No Data', isSuccess: false, validation: false, data: null);
+
+    try {
+      bool isInternet = await helper.isNetworkConnection();
+      if (isInternet) {
+        String authToken = helper.getStorage(session.authToken);
+        dio.options.headers["Authorization"] = "Bearer $authToken";
+
+        final response = await dio.put(apiName, data: body); //dio request
+        apiData = await checkStatus(response); // get data base on status code
+
+        return apiData;
+      } else {
+        goToNoInternetScreen();
+      }
+    } on SocketException catch (e) {
+      onSocketException(e);
+      return apiData;
+    } on Exception catch (e) {
+      onException(e);
+      return apiData;
+    }
+  }
+
+  // ignore: missing_return
+  Future<APIDataClass> deleteApi(String apiName, body) async {
+    //default data to class
+    APIDataClass apiData = new APIDataClass(message: 'No Data', isSuccess: false, validation: false, data: null);
+
+    try {
+      bool isInternet = await helper.isNetworkConnection(); //check for internet
+      if (isInternet) {
+        String authToken = helper.getStorage(session.authToken);
+        dio.options.headers["Authorization"] = "Bearer $authToken";
+
+        final response = await dio.delete(apiName, data: body); //dio request
+        apiData = await checkStatus(response); // get data base on status code
+
+        return apiData;
+      } else {
+        goToNoInternetScreen();
+      }
+    } on SocketException catch (e) {
+      onSocketException(e);
+      return apiData;
+    } on Exception catch (e) {
+      onException(e);
+      return apiData;
+    }
+  }*/
+  //#endregion
 }
