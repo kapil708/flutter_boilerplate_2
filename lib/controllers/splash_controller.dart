@@ -36,10 +36,7 @@ class SplashController extends GetxController {
         Get.offAndToNamed(routeName.login);
       }
     } else {
-      String currentRoute = Get.currentRoute;
-      if (currentRoute != routeName.noInternet) {
-        Get.offAndToNamed(routeName.noInternet);
-      }
+      helper.goToNoInternetScreen();
     }
     //#endregion
   }
