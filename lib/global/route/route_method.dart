@@ -9,5 +9,6 @@ RouteName _routeName = RouteName();
 class AppRoute {
   final List<GetPage> getPages = [
     GetPage(name: _routeName.home, page: () => HomeScreen()),
+    GetPage(name: _routeName.noInternet, page: () => NoInternet()),
   ];
 }

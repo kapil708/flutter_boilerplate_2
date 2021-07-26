@@ -7,11 +7,15 @@ class ConstValue {
 }
 
 class Session {
+  final String id = 'id';
   final String authToken = 'authToken';
   final String emailId = 'emailId';
   final String password = 'password';
   final String phone = 'phone';
   final String isoCode = 'isoCode';
+  //for language change
+  final String languageCode = 'languageCode';
+  final String countryCode = 'countryCode';
 }
 
 class ApiType {

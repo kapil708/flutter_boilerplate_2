@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_boilerplate_2/controllers/common/loading_controller.dart';
 import 'package:flutter_boilerplate_2/global/assets/index.dart' show imageAssets;
 import 'package:flutter_boilerplate_2/global/networking/index.dart' show serverConfig;
+import 'package:flutter_boilerplate_2/global/route/index.dart';
 import 'package:flutter_boilerplate_2/global/theme/index.dart' show appColor, appCss;
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -459,6 +460,13 @@ class Helper {
         return true;
       else
         return false;
+    }
+  }
+
+  goToNoInternetScreen() {
+    String currentRoute = Get.currentRoute;
+    if (currentRoute != routeName.noInternet) {
+      Get.toNamed(routeName.noInternet);
     }
   }
 }
